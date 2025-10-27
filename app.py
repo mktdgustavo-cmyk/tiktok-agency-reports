@@ -75,26 +75,29 @@ def upload_file():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_com_timestamp)
         file.save(filepath)
         
-        # Processar planilha
-        analisador = AnalisadorRelatorio(filepath)
-        resultado = analisador.processar()
-        
-        if resultado['status'] == 'erro':
-            return jsonify({'error': resultado['mensagem']}), 400
-        
-        # Gerar relatório HTML
-        html_filename = f"relatorio_{timestamp}.html"
-        html_path = os.path.join(app.config['OUTPUT_FOLDER'], html_filename)
-        analisador.gerar_html(html_path)
-        
-        return jsonify({
-            'status': 'sucesso',
-            'mensagem': 'Relatório gerado com sucesso!',
-            'dados': limpar_dados_json(resultado['dados']),
-            'html_url': f'/relatorio/{html_filename}',
-            'pdf_url': f'/pdf/{html_filename}',
-            'timestamp': timestamp
-        })
+# Processar planilha
+analisador = AnalisadorRelatorio(filepath)
+resultado = analisador.processar()
+
+if resultado['status'] == 'erro':
+    return jsonify({'error': resultado['mensagem']}), 400
+
+# Limpar dados antes de enviar como JSON
+dados_limpos = limpar_dados_json(resultado['dados'])
+
+# Gerar relatório HTML
+html_filename = f"relatorio_{timestamp}.html"
+html_path = os.path.join(app.config['OUTPUT_FOLDER'], html_filename)
+analisador.gerar_html(html_path)
+
+return jsonify({
+    'status': 'sucesso',
+    'mensagem': 'Relatório gerado com sucesso!',
+    'dados': dados_limpos,
+    'html_url': f'/relatorio/{html_filename}',
+    'pdf_url': f'/pdf/{html_filename}',
+    'timestamp': timestamp
+})
     
     except Exception as e:
         import traceback
