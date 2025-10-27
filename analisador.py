@@ -375,11 +375,14 @@ class AnalisadorRelatorio:
         """Gera arquivo HTML do relatório"""
         from jinja2 import Template
         
+        # Extrair nome do arquivo
+        arquivo_nome = os.path.basename(output_path)
+        
         # Template HTML (inline por simplicidade)
         template_html = self.get_template_html()
         
         template = Template(template_html)
-        html_content = template.render(**self.dados_agregados)
+        html_content = template.render(arquivo_nome=arquivo_nome, **self.dados_agregados)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
@@ -424,6 +427,26 @@ class AnalisadorRelatorio:
     </style>
 </head>
 <body>
+    <!-- Barra de Ações Fixa -->
+    <div style="position: sticky; top: 0; z-index: 1000; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="display: flex; gap: 10px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
+                🖨️ Imprimir
+            </button>
+            <a href="/pdf/{{ arquivo_nome }}" download style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; text-decoration: none; transition: all 0.3s ease;">
+                📥 Baixar PDF
+            </a>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="/historico" style="padding: 10px 20px; background: white; color: #667eea; border: 2px solid #667eea; border-radius: 8px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
+                📂 Histórico
+            </a>
+            <a href="/" style="padding: 10px 20px; background: white; color: #667eea; border: 2px solid #667eea; border-radius: 8px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
+                ← Voltar
+            </a>
+        </div>
+    </div>
+    
     <div class="container">
         <h1>📊 Relatório Semanal — Agência</h1>
         
