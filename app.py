@@ -26,7 +26,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def limpar_arquivos_antigos():
-    """Remove arquivos com mais de 1 hora"""
+    """Remove arquivos com mais de 30 dias"""
     import time
     agora = time.time()
     
@@ -35,7 +35,7 @@ def limpar_arquivos_antigos():
             for arquivo in os.listdir(pasta):
                 caminho = os.path.join(pasta, arquivo)
                 if os.path.isfile(caminho):
-                    if agora - os.path.getmtime(caminho) > 3600:
+                    if agora - os.path.getmtime(caminho) > 2592000:
                         try:
                             os.remove(caminho)
                         except:
