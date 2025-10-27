@@ -5,8 +5,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PORT=5000
 
-# Instalar TODAS as dependências necessárias
-RUN apt-get update && apt-get install -y \
+# Instalar dependências do sistema para WeasyPrint
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3-dev \
     python3-pip \
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libffi-dev \
     shared-mime-info \
     libharfbuzz0b \
@@ -38,5 +38,4 @@ RUN mkdir -p uploads outputs && \
 
 EXPOSE 5000
 
-# Comando com mais tempo para timeout
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "300", "--graceful-timeout", "30", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "app:app"]
