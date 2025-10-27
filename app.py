@@ -11,6 +11,7 @@ import os
 import pandas as pd
 from datetime import datetime
 import json
+import numpy as np
 from analisador import AnalisadorRelatorio
 
 app = Flask(__name__)
@@ -34,12 +35,31 @@ def limpar_arquivos_antigos():
             for arquivo in os.listdir(pasta):
                 caminho = os.path.join(pasta, arquivo)
                 if os.path.isfile(caminho):
-                    # Remove se arquivo tem mais de 1 hora
                     if agora - os.path.getmtime(caminho) > 3600:
                         try:
                             os.remove(caminho)
                         except:
                             pass
+
+def limpar_dados_json(obj):
+    """
+    Recursivamente substitui NaN, Infinity e None por valores válidos em JSON
+    """
+    if isinstance(obj, dict):
+        return {k: limpar_dados_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [limpar_dados_json(item) for item in obj]
+    elif isinstance(obj, float):
+        if pd.isna(obj) or np.isnan(obj):
+            return 0
+        elif np.isinf(obj):
+            return 0
+        else:
+            return obj
+    elif pd.isna(obj):
+        return None
+    else:
+        return obj
 
 @app.route('/')
 def index():
@@ -77,6 +97,9 @@ def upload_file():
         if resultado['status'] == 'erro':
             return jsonify({'error': resultado['mensagem']}), 400
         
+        # Limpar dados antes de enviar como JSON
+        dados_limpos = limpar_dados_json(resultado['dados'])
+        
         # Gerar relatório HTML
         html_filename = f"relatorio_{timestamp}.html"
         html_path = os.path.join(app.config['OUTPUT_FOLDER'], html_filename)
@@ -85,7 +108,7 @@ def upload_file():
         return jsonify({
             'status': 'sucesso',
             'mensagem': 'Relatório gerado com sucesso!',
-            'dados': resultado['dados'],
+            'dados': dados_limpos,
             'html_url': f'/relatorio/{html_filename}',
             'pdf_url': f'/pdf/{html_filename}',
             'timestamp': timestamp
