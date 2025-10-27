@@ -1,46 +1,42 @@
-# Dockerfile para Gerador de Relatórios - Agência
-# Otimizado para Easypanel
-
 FROM python:3.11-slim
 
-# Variáveis de ambiente
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PORT=5000
 
-# Instalar dependências do sistema para WeasyPrint (geração de PDF)
+# Instalar TODAS as dependências necessárias
 RUN apt-get update && apt-get install -y \
     build-essential \
+    python3-dev \
+    python3-pip \
+    python3-setuptools \
+    python3-wheel \
+    python3-cffi \
+    libcairo2 \
     libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libharfbuzz0b \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
     libffi-dev \
+    shared-mime-info \
+    libharfbuzz0b \
     libjpeg-dev \
     libopenjp2-7-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Criar diretório da aplicação
 WORKDIR /app
 
-# Copiar requirements primeiro (para cache do Docker)
 COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Instalar dependências Python
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copiar o resto da aplicação
 COPY . .
 
-# Criar diretórios necessários
-RUN mkdir -p uploads outputs
+RUN mkdir -p uploads outputs && \
+    chmod 777 uploads outputs
 
-# Expor porta
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:5000/health')"
-
-# Comando para rodar a aplicação com gunicorn (produção)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+# Comando com mais tempo para timeout
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "300", "--graceful-timeout", "30", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "app:app"]
