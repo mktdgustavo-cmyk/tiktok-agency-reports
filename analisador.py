@@ -8,6 +8,7 @@ Segue todas as regras do manual_metricas_agencia_v2.md
 import pandas as pd
 import numpy as np
 import re
+import os
 from datetime import datetime
 
 class AnalisadorRelatorio:
