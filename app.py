@@ -90,7 +90,7 @@ def upload_file():
         return jsonify({
             'status': 'sucesso',
             'mensagem': 'Relatório gerado com sucesso!',
-            'dados': resultado['dados'],
+            'dados': limpar_dados_json(resultado['dados']),
             'html_url': f'/relatorio/{html_filename}',
             'pdf_url': f'/pdf/{html_filename}',
             'timestamp': timestamp
