@@ -12,6 +12,7 @@ import pandas as pd
 from datetime import datetime
 import json
 from analisador import AnalisadorRelatorio
+import numpy as np
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
@@ -24,22 +25,26 @@ ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def limpar_arquivos_antigos():
-    """Remove arquivos com mais de 30 dias"""
-    import time
-    agora = time.time()
-    
-    for pasta in [app.config['UPLOAD_FOLDER'], app.config['OUTPUT_FOLDER']]:
-        if os.path.exists(pasta):
-            for arquivo in os.listdir(pasta):
-                caminho = os.path.join(pasta, arquivo)
-                if os.path.isfile(caminho):
-                    # Remove se arquivo tem mais de 30 dias (2592000 segundos)
-                    if agora - os.path.getmtime(caminho) > 2592000:
-                        try:
-                            os.remove(caminho)
-                        except:
-                            pass
+def limpar_dados_json(obj):
+    """
+    Recursivamente substitui NaN, Infinity e None por valores válidos em JSON
+    """
+    if isinstance(obj, dict):
+        return {k: limpar_dados_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [limpar_dados_json(item) for item in obj]
+    elif isinstance(obj, float):
+        if pd.isna(obj) or np.isnan(obj):
+            return 0
+        elif np.isinf(obj):
+            return 0
+        else:
+            return obj
+    elif pd.isna(obj):
+        return None
+    else:
+        return obj
+
 
 @app.route('/')
 def index():
