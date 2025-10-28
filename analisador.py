@@ -332,11 +332,6 @@ class AnalisadorRelatorio:
             'criadores_ocultos': max(0, n_criadores - 50),
             'insights_ia': insights_ia
         }
-
-            'atencoes': atencoes_list,
-            'tabela_criadores': tabela_criadores,
-            'criadores_ocultos': max(0, n_criadores - 50)
-        }
     
     def gerar_nota(self, row):
         """Gera nota contextual para o criador"""
