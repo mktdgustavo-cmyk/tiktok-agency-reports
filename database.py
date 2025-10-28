@@ -22,8 +22,12 @@ class Database:
             print("⚠️ Credenciais Supabase não configuradas!")
             self.supabase = None
         else:
-            self.supabase: Client = create_client(url, key)
-            print("✅ Conectado ao Supabase!")
+            try:
+                self.supabase: Client = create_client(url, key)
+                print("✅ Conectado ao Supabase!")
+            except Exception as e:
+                print(f"❌ Erro ao conectar no Supabase: {e}")
+                self.supabase = None
     
     def is_connected(self):
         """Verifica se está conectado"""
