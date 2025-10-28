@@ -200,7 +200,8 @@ def upload():
         
         return jsonify({
             'sucesso': True,
-            'url': f'/relatorio/{output_filename}'
+            'html_url': f'/relatorio/{output_filename}',
+            'pdf_url': f'/pdf/{output_filename}'
         })
     
     except Exception as e:
@@ -270,13 +271,20 @@ def download_pdf(filename):
         from weasyprint import HTML
         
         html_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+        
+        # Verificar se arquivo HTML existe
+        if not os.path.exists(html_path):
+            return f"Relatório HTML não encontrado: {filename}", 404
+        
         pdf_path = html_path.replace('.html', '.pdf')
         
+        # Gerar PDF
         HTML(html_path).write_pdf(pdf_path)
         
         return send_file(pdf_path, as_attachment=True, download_name=filename.replace('.html', '.pdf'))
     
     except Exception as e:
+        print(f"Erro ao gerar PDF: {e}")
         return f"Erro ao gerar PDF: {e}", 500
 
 # ==========================================
