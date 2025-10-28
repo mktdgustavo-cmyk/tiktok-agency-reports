@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Painel · OLAH Agência</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #F5F5F5;
+            color: #2D2D2D;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 20px 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            height: 40px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #2D2D2D;
+        }
+
+        .btn-logout {
+            padding: 10px 20px;
+            background: #FF006B;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-logout:hover {
+            background: #E4FF1A;
+            color: #2D2D2D;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        /* Cards de estatísticas */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-card.highlight {
+            background: linear-gradient(135deg, #E4FF1A 0%, #8B00FF 100%);
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .stat-subtitle {
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        /* Gráfico */
+        .chart-container {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 32px;
+        }
+
+        .chart-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        #graficoDesempenho {
+            width: 100%;
+            height: 300px;
+        }
+
+        /* Histórico */
+        .historico-container {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .historico-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #F5F5F5;
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid #E0E0E0;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-verde {
+            background: #E4FF1A;
+            color: #2D2D2D;
+        }
+
+        .status-amarelo {
+            background: #FF5C00;
+            color: white;
+        }
+
+        .status-vermelho {
+            background: #FF006B;
+            color: white;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <img src="/static/img/PRINCIPAL.svg" alt="OLAH" class="logo">
+        <div class="user-info">
+            <span class="user-name">{{ user.nome_display }}</span>
+            <a href="/logout"><button class="btn-logout">Sair</button></a>
+        </div>
+    </div>
+
+    <!-- Container principal -->
+    <div class="container">
+        <h1 style="margin-bottom: 32px; font-size: 32px; font-weight: 800;">
+            Meu Painel de Desempenho 🚀
+        </h1>
+
+        <!-- Cards de estatísticas -->
+        <div class="stats-grid">
+            <div class="stat-card highlight">
+                <div class="stat-label">Total de Diamantes</div>
+                <div class="stat-value">{{ "{:,}".format(stats.total_diamantes).replace(',', '.') }}</div>
+                <div class="stat-subtitle">Últimas {{ stats.total_semanas }} semanas</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Média Semanal</div>
+                <div class="stat-value">{{ "{:,}".format(stats.media_diamantes|int).replace(',', '.') }}</div>
+                <div class="stat-subtitle">diamantes/semana</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Horas Totais</div>
+                <div class="stat-value">{{ stats.total_horas|round|int }}h</div>
+                <div class="stat-subtitle">Média: {{ stats.media_horas|round(1) }}h/sem</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Melhor Semana</div>
+                <div class="stat-value">{{ "{:,}".format(stats.melhor_semana.diamantes).replace(',', '.') }}</div>
+                <div class="stat-subtitle">{{ stats.melhor_semana.periodo_inicio }}</div>
+            </div>
+        </div>
+
+        <!-- Gráfico de evolução -->
+        <div class="chart-container">
+            <h2 class="chart-title">📈 Evolução de Diamantes</h2>
+            <canvas id="graficoDesempenho"></canvas>
+        </div>
+
+        <!-- Histórico detalhado -->
+        <div class="historico-container">
+            <h2 class="historico-title">📊 Histórico Detalhado</h2>
+            
+            {% if historico %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Período</th>
+                        <th>Diamantes</th>
+                        <th>Horas</th>
+                        <th>Batalhas</th>
+                        <th>Dias</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in historico %}
+                    <tr>
+                        <td>{{ item.periodo_inicio }} a {{ item.periodo_fim }}</td>
+                        <td>{{ "{:,}".format(item.diamantes).replace(',', '.') }}</td>
+                        <td>{{ item.horas|round(1) }}h</td>
+                        <td>{{ item.batalhas }}</td>
+                        <td>{{ item.dias_validos }}</td>
+                        <td>
+                            <span class="status-badge status-{{ item.status }}">
+                                {% if item.status == 'verde' %}🟢 OK
+                                {% elif item.status == 'amarelo' %}🟡 Atenção
+                                {% else %}🔴 Alerta{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: #999; padding: 40px;">
+                Nenhum histórico disponível ainda.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Dados do gráfico
+        const labels = {{ labels|tojson }};
+        const data = {{ data|tojson }};
+
+        // Criar gráfico
+        const ctx = document.getElementById('graficoDesempenho').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Diamantes',
+                    data: data,
+                    borderColor: '#8B00FF',
+                    backgroundColor: 'rgba(139, 0, 255, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointBackgroundColor: '#E4FF1A',
+                    pointBorderColor: '#8B00FF',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
