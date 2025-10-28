@@ -30,6 +30,7 @@ class AnalisadorRelatorio:
         self.filepath = filepath
         self.df = None
         self.dados_agregados = {}
+        self.criadores = []  # Lista de criadores processados
         
     def converter_duracao_para_horas(self, duracao_str):
         """Converte duração (ex: '52h 26m 44s') para horas decimais"""
@@ -692,6 +693,13 @@ SEM introduções ou conclusões - apenas os bullets."""
             </ul>
         </div>
         {% endfor %}
+        {% endif %}
+
+        {% if insights_ia %}
+        <h2>🤖 Insights da IA</h2>
+        <div style="background: linear-gradient(135deg, #E4FF1A 0%, #8B00FF 100%); padding: 25px; border-radius: 12px; margin: 30px 0; color: #2D2D2D;">
+            <div style="white-space: pre-wrap; font-size: 15px; line-height: 1.8;">{{ insights_ia }}</div>
+        </div>
         {% endif %}
 
         <h2>👤 Visão Detalhada por Criador (Top 50)</h2>
