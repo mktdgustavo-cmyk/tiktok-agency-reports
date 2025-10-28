@@ -9,6 +9,6 @@ gunicorn==21.2.0
 numpy==1.26.2
 anthropic==0.39.0
 Flask-Login==0.6.3
-supabase==2.3.0
+supabase==2.9.0
 python-dotenv==1.0.0
 bcrypt==4.1.2
