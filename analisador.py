@@ -10,6 +10,7 @@ import numpy as np
 import re
 import os
 from datetime import datetime
+import anthropic
 
 class AnalisadorRelatorio:
     """
@@ -223,7 +224,7 @@ class AnalisadorRelatorio:
         return alertas, atencoes
     
     def calcular_agregados(self):
-        """Calcula dados agregados da agência"""
+        """Calcula dados agregados da agência com classificação especial para tops"""
         total_diamantes = int(self.df['diamantes_total'].sum())
         total_horas = round(self.df['horas_live'].sum(), 2)
         n_criadores = len(self.df)
@@ -236,20 +237,51 @@ class AnalisadorRelatorio:
         media_batalhas = round(self.df['batalhas_qtd'].mean(), 1)
         media_dias = round(self.df['dias_live_validos'].mean(), 1)
         
-        # Contadores de status
-        criadores_alertas = self.df[self.df['alertas'].apply(len) > 0]
-        criadores_atencoes = self.df[self.df['atencoes'].apply(len) > 0]
-        criadores_atencoes = criadores_atencoes[~criadores_atencoes['streamer_nome'].isin(criadores_alertas['streamer_nome'])]
-        
-        n_alertas = len(criadores_alertas)
-        n_atencoes = len(criadores_atencoes)
-        n_oks = n_criadores - n_alertas - n_atencoes
-        
-        # Pareto 80/20
+        # Pareto 80/20 (calcular ANTES da classificação)
         df_sorted = self.df.sort_values('diamantes_total', ascending=False).reset_index(drop=True)
         n_top_20 = max(1, int(n_criadores * 0.20))
-        top_pareto = df_sorted.head(n_top_20)
-        perc_pareto = round(top_pareto['diamantes_total'].sum() / max(total_diamantes, 1) * 100, 1)
+        top_pareto_nomes = set(df_sorted.head(n_top_20)['streamer_nome'].tolist())
+        perc_pareto = round(df_sorted.head(n_top_20)['diamantes_total'].sum() / max(total_diamantes, 1) * 100, 1)
+        
+        # Aplicar NOVA classificação com regra especial para tops
+        self.criadores = []
+        for idx, row in df_sorted.iterrows():
+            is_top = row['streamer_nome'] in top_pareto_nomes
+            
+            classificacao = self.classificar_criador_com_ia({
+                'nome': row['streamer_nome'],
+                'diamantes': row['diamantes_total'],
+                'horas': row['horas_live'],
+                'batalhas': row['batalhas_qtd'],
+                'perc_batalhas': row['perc_batalhas'],
+                'dias': row['dias_live_validos']
+            }, is_top)
+            
+            self.criadores.append({
+                'nome': row['streamer_nome'],
+                'diamantes': int(row['diamantes_total']),
+                'horas': row['horas_live'],
+                'diam_hora': row['diamantes_por_hora'],
+                'perc_bat': row['perc_batalhas'],
+                'batalhas': int(row['batalhas_qtd']),
+                'dias': int(row['dias_live_validos']),
+                'classificacao': classificacao,
+                'is_top': is_top,
+                'st_diam': row['status_diamantes'],
+                'st_horas': row['status_horas'],
+                'st_perc_bat': row['status_perc_bat'],
+                'st_bats': row['status_batalhas'],
+                'st_dias': row['status_dias']
+            })
+        
+        # Recontar com nova classificação
+        alertas_list = [c for c in self.criadores if c['classificacao']['status'] == 'vermelho']
+        atencoes_list = [c for c in self.criadores if c['classificacao']['status'] == 'amarelo']
+        oks_list = [c for c in self.criadores if c['classificacao']['status'] == 'verde']
+        
+        n_alertas = len(alertas_list)
+        n_atencoes = len(atencoes_list)
+        n_oks = len(oks_list)
         
         # Status da agência
         status_diam_ag = self.get_status_diamantes(media_diam_criador)
@@ -258,52 +290,19 @@ class AnalisadorRelatorio:
         status_bat_ag = self.get_status_batalhas(media_batalhas)
         status_dias_ag = self.get_status_dias(media_dias)
         
-        # Preparar top pareto
+        # Top pareto com novos dados
         top_pareto_list = []
-        for idx, row in top_pareto.iterrows():
-            perc_individual = round((row['diamantes_total'] / max(total_diamantes, 1)) * 100, 1)
+        for c in self.criadores[:n_top_20]:
+            perc_individual = round((c['diamantes'] / max(total_diamantes, 1)) * 100, 1)
             top_pareto_list.append({
-                'nome': row['streamer_nome'],
-                'diamantes': int(row['diamantes_total']),
+                'nome': c['nome'],
+                'diamantes': c['diamantes'],
                 'percentual': perc_individual
             })
         
-        # Preparar alertas
-        alertas_list = []
-        for idx, row in criadores_alertas.iterrows():
-            if len(row['alertas']) > 0:
-                alertas_list.append({
-                    'nome': row['streamer_nome'],
-                    'motivos': row['alertas']
-                })
-        
-        # Preparar atenções
-        atencoes_list = []
-        for idx, row in criadores_atencoes.iterrows():
-            if len(row['atencoes']) > 0:
-                atencoes_list.append({
-                    'nome': row['streamer_nome'],
-                    'motivos': row['atencoes']
-                })
-        
-        # Preparar tabela de criadores (top 50)
-        tabela_criadores = []
-        for idx, row in df_sorted.head(50).iterrows():
-            tabela_criadores.append({
-                'nome': row['streamer_nome'],
-                'diamantes': int(row['diamantes_total']),
-                'horas': row['horas_live'],
-                'diam_hora': row['diamantes_por_hora'],
-                'perc_bat': row['perc_batalhas'],
-                'batalhas': int(row['batalhas_qtd']),
-                'dias': int(row['dias_live_validos']),
-                'st_diam': row['status_diamantes'],
-                'st_horas': row['status_horas'],
-                'st_perc_bat': row['status_perc_bat'],
-                'st_bats': row['status_batalhas'],
-                'st_dias': row['status_dias'],
-                'nota': self.gerar_nota(row)
-            })
+        # Gerar insights com IA
+        print("🤖 Gerando insights com Claude...")
+        insights_ia = self.gerar_insights_ia()
         
         self.dados_agregados = {
             'n_criadores': n_criadores,
@@ -326,7 +325,14 @@ class AnalisadorRelatorio:
             'status_bat_ag': status_bat_ag,
             'status_dias_ag': status_dias_ag,
             'top_pareto': top_pareto_list,
-            'alertas': alertas_list,
+            'top_creators': top_pareto_list,
+            'alertas': [{'nome': c['nome'], 'motivos': [c['classificacao']['motivo']]} for c in alertas_list],
+            'atencoes': [{'nome': c['nome'], 'motivos': [c['classificacao']['motivo']]} for c in atencoes_list],
+            'tabela_criadores': self.criadores[:50],  # Top 50
+            'criadores_ocultos': max(0, n_criadores - 50),
+            'insights_ia': insights_ia
+        }
+
             'atencoes': atencoes_list,
             'tabela_criadores': tabela_criadores,
             'criadores_ocultos': max(0, n_criadores - 50)
@@ -359,6 +365,140 @@ class AnalisadorRelatorio:
             notas.append("Muito consistente")
         
         return " · ".join(notas) if notas else "—"
+    
+    def classificar_criador_com_ia(self, criador, is_top_20):
+        """
+        Classifica criador com regra especial para tops:
+        - Tops com 60%+ indicadores OK não vão para vermelho
+        """
+        # Calcular % de indicadores positivos
+        indicadores_positivos = sum([
+            criador['diamantes'] >= self.METAS['diamantes']['ideal'],
+            criador['horas'] >= self.METAS['horas']['ideal'],
+            criador['batalhas'] >= self.METAS['batalhas']['ideal'],
+            criador['perc_batalhas'] >= self.METAS['perc_batalhas']['ideal'],
+            criador['dias'] >= self.METAS['dias']['ideal']
+        ])
+        
+        percentual_ok = (indicadores_positivos / 5) * 100
+        
+        # REGRA ESPECIAL: Tops com 60%+ indicadores OK não vão para vermelho
+        if is_top_20 and percentual_ok >= 60:
+            return {
+                'status': 'amarelo',
+                'motivo': f"Top creator com {percentual_ok:.0f}% indicadores OK",
+                'acao': 'Monitorar e otimizar pontos de atenção'
+            }
+        
+        # Regras normais para alertas vermelhos
+        if criador['diamantes'] < self.METAS['diamantes']['alerta']:
+            return {
+                'status': 'vermelho',
+                'motivo': f"Diamantes abaixo do alerta ({criador['diamantes']} < 3.000)",
+                'acao': 'Contato imediato'
+            }
+        
+        if indicadores_positivos <= 1:
+            return {
+                'status': 'vermelho',
+                'motivo': 'Múltiplos indicadores críticos',
+                'acao': 'Contato imediato'
+            }
+        
+        # Atenções
+        if percentual_ok < 60:
+            return {
+                'status': 'amarelo',
+                'motivo': f"{percentual_ok:.0f}% indicadores OK",
+                'acao': 'Monitorar e orientar'
+            }
+        
+        # Status verde
+        return {
+            'status': 'verde',
+            'motivo': 'Todas métricas em dia',
+            'acao': 'Manter estratégia'
+        }
+    
+    def gerar_insights_ia(self):
+        """
+        Usa Claude API para gerar insights personalizados
+        APENAS recomendações práticas e observações críticas
+        """
+        try:
+            api_key = os.environ.get('ANTHROPIC_API_KEY')
+            if not api_key:
+                return self._insights_fallback()
+            
+            client = anthropic.Anthropic(api_key=api_key)
+            
+            # Preparar dados para IA
+            top_creators = self.dados_agregados.get('top_creators', [])[:3]
+            alertas = len([c for c in self.criadores if c.get('classificacao', {}).get('status') == 'vermelho'])
+            atencoes = len([c for c in self.criadores if c.get('classificacao', {}).get('status') == 'amarelo'])
+            
+            prompt = f"""Você é analista sênior da OLAH Agência de Creators (TikTok).
+
+DADOS DA SEMANA:
+- Total diamantes: {self.dados_agregados.get('diamantes_total', 0):,.0f}
+- Horas totais: {self.dados_agregados.get('horas_total', 0):.1f}h
+- Top 3: {', '.join([c['nome'] for c in top_creators[:3]])}
+- Alertas vermelhos: {alertas}
+- Atenções: {atencoes}
+- Média batalhas/creator: {self.dados_agregados.get('media_batalhas', 0):.1f}
+
+RESPONDA APENAS:
+
+🔧 Recomendações Práticas:
+(3-5 ações diretas e práticas)
+
+⚠️ Observações Críticas:
+(2-3 pontos de atenção urgentes)
+
+TOM: Direto, jovem, enérgico (marca OLAH).
+SEM introduções ou conclusões - apenas os bullets."""
+
+            message = client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=800,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            
+            return message.content[0].text
+            
+        except Exception as e:
+            print(f"Erro na IA: {e}")
+            return self._insights_fallback()
+    
+    def _insights_fallback(self):
+        """
+        Insights automáticos caso IA falhe
+        """
+        insights = []
+        obs_criticas = []
+        
+        # Recomendações baseadas em regras
+        alertas = len([c for c in self.criadores if c.get('classificacao', {}).get('status') == 'vermelho'])
+        if alertas > len(self.criadores) * 0.5:
+            obs_criticas.append(f"⚠️ **Concentração extrema:** {alertas} creators ({alertas/len(self.criadores)*100:.0f}%) em alerta vermelho")
+        
+        media_batalhas = self.dados_agregados.get('media_batalhas', 0)
+        if media_batalhas < 10:
+            insights.append("🎯 Incentivar participação em batalhas (média baixa)")
+        
+        if self.dados_agregados.get('media_perc_batalhas', 0) < 40:
+            insights.append("💎 Focar estratégia de batalhas para aumentar diamantes")
+        
+        # Formatar resposta
+        texto = "🔧 **Recomendações Práticas:**\n"
+        for i in insights[:3]:
+            texto += f"- {i}\n"
+        
+        texto += "\n⚠️ **Observações Críticas:**\n"
+        for o in obs_criticas[:3]:
+            texto += f"- {o}\n"
+        
+        return texto if (insights or obs_criticas) else "Análise automática indisponível."
     
     def extrair_periodo(self):
         """Extrai período dos dados"""
